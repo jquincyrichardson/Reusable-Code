@@ -1,0 +1,924 @@
+<?php
+
+$debug = false; //replace with true to output results to page 
+$myDomainName = "moneypages.com";  //moneypages.com for live mpusa.net for testing
+$passMarketDomain = "https://api.passmarket.com/api/";//testing - https://stageapi.passmarket.com/api/ ---     // production     https://api.passmarket.com/api/
+$masterApiKey = '1234';  //testing - 1234---     // production     1234
+$masterSecretKey = '1234'; //testing - 1234---     // production   1234
+
+function accountCreate($emailAddy, $accountData, $clientID, $db) {
+			global $debug;
+			global $myDomainName;
+			global $passMarketDomain;
+			global $passMarketDomain;
+			global $masterApiKey;
+			global $masterSecretKey; 
+	//test if the account exist i.e. has an exisiting api if not, then add the new api...
+					$sql="SELECT ClientDetailPageImage, PM_AccountId, PM_API_Key, PM_API_Secret_Key FROM CLIENTS WHERE ClientID = " . $clientID;
+					$result = mysql_query($sql,$db);
+					$myrow = mysql_fetch_array($result);
+					$accountID = $myrow["PM_AccountId"];
+						$apiKey = $masterApiKey;  // change this
+						$apiSecretKey = $masterSecretKey;
+						$epoch_milliseconds = time()*1000;		
+					
+							if ($myrow["ClientDetailPageImage"]!=='') {
+								$brandImageValue="http://www.".$myDomainName."/clientimages/" . $myrow["ClientDetailPageImage"];
+								
+							echo $brandImageValue;
+								
+								 $im = file_get_contents($brandImageValue);
+        							$imdata = base64_encode($im);
+									
+									//$myimage = base64_decode($imdata) ;
+									//echo imagepng($imdata);
+								$accountData["BrandImage"] = $imdata;
+								}
+					
+							
+
+					if ($accountID=='') { //if there is an account API already then this code will not execute
+						echo  "<h1>new</h1>";
+
+				
+								$querystring = 'emailAddress=' . $emailAddy. '&timestamp=' . $epoch_milliseconds ;
+								$hash = hash_hmac("sha256", $querystring, $apiSecretKey);
+			
+								$data_string = utf8_encode(json_encode($accountData));
+								
+						/*	*/
+						if ($debug==true) {
+								echo "<div class='errorCode'>";	
+								echo '<br><br>------------------------------------------begin account creation ---------------------------------------------------------<br><br>EPOCH Time: ' . $epoch_milliseconds . '<br>';
+								echo 'Hash: ' . $hash . '<br>';
+								echo 'Api Secret: ' . $apiSecretKey . '<br>';
+								echo 'QueryString: ' . $querystring . '<br>';	
+									echo "<img src=' $brandImageValue' />";
+								echo '<img src="data:image/png;base64,' .$imdata.'"</>';
+								echo 'JSON: ' . $data_string . '<br><br></div>';
+								}
+								
+								
+								$f = fopen('request.txt', 'w');
+												
+								$ch = curl_init();
+								
+								curl_setopt($ch, CURLOPT_URL, $passMarketDomain . "account/");
+								curl_setopt($ch, CURLOPT_POST, true);
+								curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+								curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+								curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+								curl_setopt($ch, CURLOPT_STDERR, $f);
+								curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+								
+									'Accept: application/json',
+									'Content-Type: application/json',
+									'Content-Length: ' . strlen($data_string),
+									'Authorization: ' . 'Pass ' . $apiKey . ':' . $hash,
+									'X-Pass-Timestamp: ' . $epoch_milliseconds)
+								
+								);
+
+								$result = curl_exec($ch);
+								
+								fclose($f);
+								
+								$ch_error = curl_error($ch);
+							
+								$curlVersion = curl_version();
+								
+								extract(curl_getinfo($ch));
+								
+								
+								
+								if ($http_code==200) {
+									echo "<h2 class='green'>App Successfully Updated</h2>";}
+								else  {
+									echo "<h2 class='red'>Error in App Update</h2>";
+								}
+								
+								if ($debug==true) {
+									echo "<div class='errorCode'>";	
+									echo "debug:= true<br>";
+									echo 'Curl Error: ' . $ch_error . '<br><br>';	
+									echo 'Content Type: ' . $content_type . '<br>';
+									echo 'CURL Info: ' . $metrics . '<br>';
+									echo '<br>Results: ' . $result . "<br>";
+									echo "</div>";
+								}
+								
+								
+								$myResult = str_replace(":",",",$result);
+								$myResult = str_replace("{","",$myResult);
+								$myResult = str_replace("}","",$myResult);
+								$myResult2 = explode (',', $myResult);
+								//this is sloppy but it works
+							
+								$sql = 'UPDATE CLIENTS SET  PM_AccountId=' . $myResult2[1] . ', PM_API_Key=' . $myResult2[3] . ', PM_API_Secret_Key=' . $myResult2[5] . ' WHERE ClientID =' . $clientID;
+									$result = mysql_query($sql,$db);//
+								
+certCreation ($myResult2[3], $myResult2[5], $clientID, $db);
+
+
+} else {  // this is the account update section
+								
+						unset($accountData['EmailAddress']);  // can't change the email address
+						unset($accountData['Password']);  // cant change the password?
+					
+													
+								
+								echo "<h1>Account Update</h1>";
+								$querystring = 'accountId=' . $accountID . '&timestamp=' . $epoch_milliseconds ;
+								$hash = hash_hmac("sha256", $querystring, $apiSecretKey);
+								$data_string = utf8_encode(json_encode($accountData));	
+								
+								
+								if ($debug==true) {
+								echo "<div class='errorCode'>";	
+									echo 'Hash: ' . $hash . '<br>';
+									echo 'Api Secret: ' . $apiSecretKey . '<br>';
+									echo 'QueryString: ' . $querystring . '<br>';
+									echo 'JSON: ' . $data_string . '<br><br>';
+									echo "</div>";
+								};
+
+								
+							$ch = curl_init();
+							curl_setopt($ch, CURLOPT_URL, $passMarketDomain . "account/" .$accountID);
+							curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+							curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+							curl_setopt($ch, CURLOPT_POSTFIELDS,$data_string);
+							curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+							curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+							'Accept: application/json',
+							'Content-Type: application/json',
+							'Content-Length: ' . strlen($data_string),
+							'Authorization: ' . 'Pass ' . $apiKey . ':' . $hash,
+							'X-Pass-Timestamp: ' . $epoch_milliseconds)
+
+);
+
+								
+								
+								
+							
+
+$result = curl_exec($ch);
+
+//fclose($f);
+
+$ch_error = curl_error($ch);
+
+/*echo 'Curl Error: ' . $ch_error . '<br><br>';*/
+
+$curlVersion = curl_version();
+
+extract(curl_getinfo($ch));
+
+$metrics = <<<EOD
+URL....: $url
+Code...:  ($redirect_count redirect(s) in $redirect_time secs)
+Content: $content_type Size: $download_content_length (Own: $size_download) Filetime: $filetime
+Time...: $total_time Start @ $starttransfer_time (DNS: $namelookup_time Connect: $connect_time Request: $pretransfer_time)
+Speed..: Down: $speed_download (avg.) Up: $speed_upload (avg.)
+Curl...: v{$curlVersion['version']}
+EOD;
+if ($http_code==200) {
+							echo "<h2 class='green'>App Successfully Updated</h2>";
+} else  {
+	echo "<h2 class='red'>Error in App Update</h2>";
+}
+	if ($debug==true) {
+		echo "<div class='errorCode'>";	
+		echo '<h4>HTTP Code: ' . $http_code . '</h4>';
+		echo '<br>Results: ' . $result . "<br>";
+		echo 'Content Type: ' . $content_type . '<br>';
+		echo 'CURL Info: ' . $metrics . '<br>';
+	echo "</div>";
+	}
+}
+}
+?>
+
+
+
+
+<?php
+
+function certCreation ($apiKey, $apiSecretKey, $clientID, $db) {
+			global $debug;
+			global $myDomainName;
+			global $passMarketDomain;
+			global $passMarketDomain;
+			global $masterApiKey;
+			global $masterSecretKey; 
+	/* Test and see if the cert exists, if not create new one */
+
+$apiKey =str_replace('"', '', $apiKey);
+$apiSecretKey=str_replace('"', '', $apiSecretKey);
+
+$epoch_milliseconds = time()*1000;
+
+
+$querystring = 'typeIdentifier=pass.moneypages.coupon&timestamp=' . $epoch_milliseconds ;
+
+
+$hash = hash_hmac("sha256", $querystring, $apiSecretKey);
+
+$data = array( 
+
+	 "TypeIdentifier" => "pass.moneypages.coupon",
+ "CertificateData" => "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",
+
+ "CertificatePassword" => "Moneypages2014"
+	
+	);
+
+$data_string = utf8_encode(json_encode($data));
+
+/*echo '<br>------------------------------------------begin cert ---------------------------------------------------------<br><br>EPOCH Time: ' . $epoch_milliseconds . '<br>';
+
+echo 'Hash: ' . $hash . '<br>';
+
+echo 'Api Secret: ' . $apiSecretKey . '<br>';
+
+echo 'QueryString: ' . $querystring . '<br>';
+
+echo 'JSON: ' . $data_string . '<br><br>';*/
+
+
+
+$f = fopen('request.txt', 'w');
+
+
+
+$ch = curl_init();
+
+curl_setopt($ch, CURLOPT_URL, $passMarketDomain. "certificate/");
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_STDERR, $f);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+	'Accept: application/json',
+    'Content-Type: application/json',
+    'Content-Length: ' . strlen($data_string),
+    'Authorization: ' . 'Pass ' . $apiKey . ':' . $hash,
+    'X-Pass-Timestamp: ' . $epoch_milliseconds)
+
+);
+
+
+$result = curl_exec($ch);
+fclose($f);
+$ch_error = curl_error($ch);
+
+//echo 'Curl Error: ' . $ch_error . '<br><br>';
+
+							
+$curlVersion = curl_version();
+
+extract(curl_getinfo($ch));
+
+$metrics = <<<EOD
+URL....: $url
+Code...:  ($redirect_count redirect(s) in $redirect_time secs)
+Content: $content_type Size: $download_content_length (Own: $size_download) Filetime: $filetime
+Time...: $total_time Start @ $starttransfer_time (DNS: $namelookup_time Connect: $connect_time Request: $pretransfer_time)
+Speed..: Down: $speed_download (avg.) Up: $speed_upload (avg.)
+Curl...: v{$curlVersion['version']}
+
+EOD;
+	if ($http_code==200) {
+							echo "<h2 class='green'>App Successfully Updated</h2>";
+	}
+echo '<h4>HTTP Code: ' . $http_code . '</h4>';
+/*echo 'Content Type: ' . $content_type . '<br>';
+echo 'CURL Info: ' . $metrics . '<br>';
+echo '<br>Results: ' . $result;
+*/
+
+$sql = 'UPDATE CLIENTS SET  PM_Cert_ID=' . $result . ' WHERE ClientID =' . $clientID;
+	echo "<br><br>------------------------------------------end cert ---------------------------------------------------------<br><br><br><br><br>";
+		$result = mysql_query($sql,$db);//
+
+
+
+}
+?>
+
+
+
+
+
+
+
+
+
+
+<?PHP
+
+function passDelete ($clientID, $couponID, $db, $new){
+	$result = mysql_query("SELECT * FROM COUPONS as c  right Join CLIENTS as cl On c.clientid=cl.clientid WHERE c.couponID = " . $couponID, $db); 
+				$myrow = mysql_fetch_array($result);
+			$numresults1 = mysql_num_rows($result);
+			$count = 1;
+			$catID = $myrow["CategoryID"];
+			$templateID = $myrow["passTemplateID"];
+			$apiKey = $myrow["PM_API_Key"];
+			//echo "api=" .$apiKey;
+			$apiSecretKey = $myrow["PM_API_Secret_Key"];
+			//echo "<br>secret=" .$apiSecretKey;
+			$apiCertKey = $myrow["PM_Cert_ID"];
+			
+			$apiKey = $apiKey; //from the account
+			$apiSecretKey = $apiSecretKey; //from the account
+			$certID = $apiCertKey; //from the account
+			
+			if ($templateID!=="") {
+			
+			
+			
+			$epoch_milliseconds = time()*1000;
+						
+			$querystring = 'passTemplateId='.$templateID.'&timestamp=' . $epoch_milliseconds ;
+			//echo $querystring;
+			$hash = hash_hmac("sha256", $querystring, $apiSecretKey);
+$data = array ();
+
+
+
+$data_string = utf8_encode(json_encode($data));
+
+$f = fopen('request.txt', 'w');
+
+$ch = curl_init();
+
+curl_setopt($ch, CURLOPT_URL, "https://api.passmarket.com/api/template/" . $templateID);
+
+curl_setopt($ch, CURLOPT_POST, true);
+
+curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE"); 
+
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+curl_setopt($ch, CURLOPT_STDERR, $f);
+
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+
+
+
+
+  'Accept: application/json',
+
+    'Content-Type: application/json',
+
+    'Content-Length: ' . strlen($data_string),
+
+    'Authorization: ' . 'Pass ' . $apiKey . ':' . $hash,
+    'X-Pass-Timestamp: ' . $epoch_milliseconds)
+
+);
+
+
+
+
+
+
+$result = curl_exec($ch);
+
+fclose($f);
+
+
+$ch_error = curl_error($ch);
+echo 'Curl Error: ' . $ch_error . '<br><br>';
+
+
+
+$curlVersion = curl_version();
+
+extract(curl_getinfo($ch));
+
+$metrics = <<<EOD
+
+URL....: $url <br>
+Code...:  ($redirect_count redirect(s) in $redirect_time secs) <br>
+Content: $content_type Size: $download_content_length (Own: $size_download) Filetime: $filetime <br>
+Time...: $total_time Start @ $starttransfer_time (DNS: $namelookup_time Connect: $connect_time Request: $pretransfer_time) <br>
+Speed..: Down: $speed_download (avg.) Up: $speed_upload (avg.) <br>
+Curl...: v{$curlVersion['version']} <br>
+EOD;
+
+
+echo 'HTTP Code: ' . $http_code . '<br> deleted';
+
+$sql = 'UPDATE COUPONS SET passTemplateId = "", LastChangedDate = CURRENT_TIMESTAMP() WHERE CouponID = ' . $couponID;
+	$result = mysql_query($sql,$db);
+
+			}
+
+if ($new == true) { // are we just deleting a pass or are we updating a pass which requires deleting the old one first.
+	
+	//create select to get $catID
+	passCreate($clientID, $couponID, $catID, $db);
+}
+
+
+}
+
+?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--  
+
+pass creation and updates
+
+-->
+
+
+<?PHP
+const INPUT_BACKGROUND = 'textToImage/background.png';
+const HEADER_FONT = 'textToImage/header';
+const TEXT_FONT = 'textToImage/text';
+const OUTPUT_DIR = 'textToImage/output';
+
+const FONT_SIZE_HEADER = 36;
+const FONT_SIZE_TEXT = 16;
+
+function passCreate($clientID, $couponID, $catID, $db){
+	
+			global $debug;
+		global $passMarketDomain;
+			global $myDomainName;
+			$result = mysql_query("SELECT * FROM COUPONS as c  right Join CLIENTS as cl On c.clientid=cl.clientid WHERE c.couponID = " . $couponID, $db); //. $_GET["cid"],$db);
+			$myrow = mysql_fetch_array($result);
+			$numresults = mysql_num_rows($result);
+			$count = 1;
+			list($myTitle1, $myTitle2, $myTitle3) = explode("<br />", $myrow["Title"], 3);
+			$myTitle1 = str_replace("&nbsp;", " ", strip_tags($myTitle1));
+			$myTitle2 = str_replace("&nbsp;", " ", strip_tags($myTitle2));
+			$myTitle3 = str_replace("&nbsp;", " ", strip_tags($myTitle3));/**/
+			$apiKey = $myrow["PM_API_Key"];
+			$apiSecretKey = $myrow["PM_API_Secret_Key"];
+			$apiCertKey = $myrow["PM_Cert_ID"];
+			$metaDesc = $myrow["METADescription"] . " ";
+			$templateID= $myrow["passTemplateID"];
+			
+	if ($apiSecretKey == "") {  // the account doesnt yet exist in the app
+						
+				$category = array($catID);		
+				
+				 if($myrow["Phone1"] != ''){
+				 $PhoneNum=str_replace("-", "",$myrow["Phone1"]) ;
+				 $PhoneNum=str_replace("(", "",$PhoneNum) ;
+				 $PhoneNum=str_replace(")", "",$PhoneNum) ;
+				 $PhoneNum=str_replace(" ", "",$PhoneNum) ;
+					} else {
+					$PhoneNum="";}
+				if($myrow["WebsiteAddress"] != ''){
+				 $WebsiteAddress="http://" .  $myrow["WebsiteAddress"];
+					} else {
+					$WebsiteAddress="";}
+					$str = substr(base64_encode(sha1(mt_rand())), 0, 8);
+				$emailAddy= $myrow["EmailAddress"];
+					if($emailAddy==""){
+						$emailAddy="mp". $str . "@moneypages.com";
+				//		$emailAddy="mp". GenerateRandomString() . "@moneypages.com";
+						//$emailAddy=" ";
+					} 
+			
+				$accountData = array( 
+							"Name" =>  $myrow["Name"],
+							"AddressLine1" =>  $myrow["Address1"],
+							"AddressLine2" =>  $myrow["Address2"],
+							//"Country" => "United States",
+							"City" =>  $myrow["City"],
+							"State" =>  $myrow["State"],
+							"PostalCode" =>  $myrow["ZipCode"],
+							"Website" => $WebsiteAddress, //Must be valid URI - IF EMPTY DO NOT PASS
+							"Phone" => $PhoneNum,  //MUST BE 10 DIGITS WITH NO FORMATTING - IF EMPTY DO NOT PASS
+							"ManagerCode" => "4321",
+							"ExternalIdentifier"=>substr(base64_encode(sha1(mt_rand())), 0, 16),
+							"TimeZone" => "Eastern Standard Time", //Case Sensitive, reccomend to leave this a constant since all clients fall into EST
+							"Categories" => $category,
+							"EmailAddress" => $emailAddy, //MUST MATCH QUERY STRING EMAIL
+							"Password" => "moneypages"
+						);
+					if($WebsiteAddress == ''){
+						unset($accountData['Website']);
+					}
+					if($PhoneNum == ''){
+						unset($accountData['Phone']);
+					}
+				//	echo "email addy;" . $emailAddy;
+					$sql = 'UPDATE CLIENTS SET appCategoryID = "' . $catID . '"  WHERE ClientID =' . $clientID;
+					$result = mysql_query($sql,$db);
+					
+					
+					
+	accountCreate($emailAddy, $accountData, $clientID, $db);
+	
+	
+	
+			$result = mysql_query("SELECT * FROM COUPONS as c  right Join CLIENTS as cl On c.clientid=cl.clientid WHERE c.couponID = " . $couponID, $db); //. $_GET["cid"],$db);
+			$myrow = mysql_fetch_array($result);
+			$numresults = mysql_num_rows($result);
+			$count = 1;
+			list($myTitle1, $myTitle2, $myTitle3) = explode("<br />", $myrow["Title"], 3);
+			$myTitle1 = str_replace("&nbsp;", " ", strip_tags($myTitle1));
+			$myTitle2 = str_replace("&nbsp;", " ", strip_tags($myTitle2));
+			$myTitle3 = str_replace("&nbsp;", " ", strip_tags($myTitle3));/**/
+			$myTitle1 = str_replace("&amp;", "&", $myTitle1);
+			$myTitle2 = str_replace("&amp;", "&", $myTitle2);
+			$myTitle3 = str_replace("&amp;", "&", $myTitle3);/**/
+			$apiKey = $myrow["PM_API_Key"];
+			$apiSecretKey = $myrow["PM_API_Secret_Key"];
+			$apiCertKey = $myrow["PM_Cert_ID"];
+			$metaDesc = $myrow["METADescription"];
+			$templateID= $myrow["passTemplateID"];
+				
+				} //if the account didnt exist we have created it now onto the coupons
+			
+			
+			
+			
+
+//this section creates the actual image for the pass
+putenv('GDFONTPATH=' . realpath('.'));
+
+if (!file_exists(OUTPUT_DIR)) {
+    mkdir(OUTPUT_DIR);
+} else {
+    foreach (scandir(OUTPUT_DIR) as $file) {
+        $file = OUTPUT_DIR . '/' . $file;
+        if (!is_dir($file)) {
+           unlink($file);
+        }
+    }
+}
+
+if (!($bg = @imagecreatefrompng(INPUT_BACKGROUND))) {
+    die(sprintf("%s could not be read.\n", INPUT_BACKGROUND));
+}
+
+if (!file_exists(TEXT_FONT . '.ttf')) {
+    die(sprintf("%s could not be read.\n", TEXT_FONT));
+}
+
+if (!file_exists(HEADER_FONT . '.ttf')) {
+    die(sprintf("%s could not be read.\n", HEADER_FONT));
+}
+
+
+
+$i = 0;
+
+
+ if ($numresults!= 0) {
+
+
+    $img = imagecreatetruecolor(imagesx($bg), imagesy($bg));
+    imagecopy($img, $bg, 0, 0, 0, 0, imagesx($bg), imagesy($bg));
+
+    $black = imagecolorallocate($img, 0, 0, 0);
+
+    $bounds = imagettfbbox(FONT_SIZE_HEADER, 0, HEADER_FONT, $myTitle1);
+    $y = imagesy($img)/2 - $bounds[5]/2 - 10;
+    imagettftext($img, FONT_SIZE_HEADER, 0, imagesx($img)/2 - $bounds[2]/2, $y, $black, HEADER_FONT, $myTitle1);
+
+    if(!empty($myTitle2)) {
+    $bounds = imagettfbbox(FONT_SIZE_TEXT, 0, TEXT_FONT, $myTitle2);
+    $y = $y - $bounds[5] + 12;
+    imagettftext($img, FONT_SIZE_TEXT, 0, imagesx($img)/2 - $bounds[2]/2, $y, $black, TEXT_FONT, $myTitle2);
+   }
+    if (!empty($myTitle3)) {
+        $bounds = imagettfbbox(FONT_SIZE_TEXT, 0, TEXT_FONT, $myTitle3);
+        $y = $y - $bounds[5] + 8;
+        imagettftext($img, FONT_SIZE_TEXT, 0, imagesx($img)/2 - $bounds[2]/2, $y, $black, TEXT_FONT, $myTitle3);
+    }
+
+    $i = 1;
+    do {
+        $output_file = OUTPUT_DIR . '/' . preg_replace('/[^0-9a-zA-Z]/', '-', $myTitle1) . ($i == 1 ? '' : $i);
+        $i++;
+    } while (file_exists($output_file . '.png'));
+    $output_file .= '.png';
+
+  imagepng($img, $output_file);
+	
+	
+	$path= $output_file;
+	$type = pathinfo($path, PATHINFO_EXTENSION);
+	$data = file_get_contents($path);
+	$base64 = base64_encode($data);
+
+    imagedestroy($img);
+}
+
+imagedestroy($bg);
+
+
+
+
+	$iconImageFile="http://www.".$myDomainName."/images/mpAppIcon.png";
+								
+							
+								
+								 $im = file_get_contents($iconImageFile);
+        							$iconImg = base64_encode($im);
+
+	$logoImageFile="http://www.".$myDomainName."/images/mpAppIcon2.png";
+								
+							
+								
+								 $im = file_get_contents($logoImageFile);
+        							$logoImg = base64_encode($im);
+
+
+
+
+
+ ?>
+
+<!--
+
+<div> <img src="<?PHP //echo $iconImageFile ?>" /> </div>
+-->
+
+<?php
+$epoch_milliseconds = time()*1000;
+$expDate=date_create($myrow["ExpirationDate"]);
+//echo "expDate" . date_format($expDate,"m/d/Y");
+
+$myDetails = str_replace('&nbsp;', ' ',$myrow["Details"]);
+$myDetails = str_replace('&bull;', '•',$myDetails);
+
+$myDisc = str_replace('&nbsp;', ' ',$myrow["Disclaimer"]);
+$myDisc = str_replace('&bull;', '•',$myDisc);
+
+ $PassFieldTemplates = array( 
+ 
+array(	
+			"PassFieldTemplateTypeId"=> 100002,
+			"PassFieldTemplateTextAlignmentTypeId"=> 100000,
+			"IsInternal"=> false,
+			"Key"=> "sf1",
+			"Label"=> "Expires",
+			"DefaultValue"=> date_format($expDate,"m/d/Y")), 
+array(
+            "PassFieldTemplateTypeId"=> 100004,
+            "PassFieldTemplateTextAlignmentTypeId"=> 100000,
+            "IsInternal"=> FALSE,
+            "Key"=> "bf0",
+            "Label"=> "Details",
+            "DefaultValue"=> strip_tags($myDetails)) , 
+array(
+            "PassFieldTemplateTypeId"=> 100004,
+            "PassFieldTemplateTextAlignmentTypeId"=> 100000,
+            "IsInternal"=> FALSE,
+            "Key"=> "bf1",
+            "Label"=> "Disclaimer",
+            "DefaultValue"=> strip_tags($myDisc))
+
+	  );
+ $PassTemplateRelevantLocations = array(
+			"Title"=>"this is the title",
+			"Latitude"=>0.0000,
+			"Longitude"=>0.0000,
+			"RelevantText"=>"this is text"
+   );
+
+$myimg= $base64;
+
+$data = array (
+			"PassFieldTemplates"=>$PassFieldTemplates,
+			"PassTemplateRelevantLocations"=> array($PassTemplateRelevantLocations),
+			"PassTemplateTypeId"=> 100003,
+			"PassTemplateId"=>$templateID,
+			"PassTemplateBarcodeTypeId"=> 100000,
+			"Enabled"=> true,
+			"CertificateId"=> $apiCertKey,
+			"Description"=> $metaDesc . "-MP", //cannot be empty
+			"BarcodeEncoding"=> "iso-8859-1",
+			"BackgroundColor"=> 16053492,
+			"ForegroundColor"=> 10438834,
+			"LabelColor"=> 10438834,
+			"IconImage"=> $iconImg,
+			"IconImage2x"=> $iconImg,
+			"LogoImage"=> $logoImg,
+			"LogoImage2x"=> $logoImg,
+			"StripImage"=> $myimg,
+			"StripImage2x"=> $myimg,
+			"AllowAutomaticGeneration"=> true,
+			"DefaultRelevantDateTime"=> null,
+			"PassExternalIdentifierTypeId"=> 100000,
+			"PassExternalIdentifierLength"=> 6,
+			"OnMarket"=> true,
+			"OnSearch"=> true,
+			"OnMarketStartDateTime"=> $myrow["StartDate"],
+			"OnMarketEndDateTime"=> $myrow["EndDate"],
+			"RedemptionLink"=> true,
+			"SingleUse"=> true,
+			"MonetaryValue"=> null,
+			"DownloadMessage"=> null,
+			"AutoRedeem"=> true    
+);
+
+
+
+$f = fopen('request.txt', 'w');
+
+$ch = curl_init();
+
+
+
+
+
+if ($templateID=="") { //if this is true then there is no template created so we will make a new one
+	$querystring = 'certificateId='.$apiCertKey.'&timestamp=' . $epoch_milliseconds ;
+	
+$hash = hash_hmac("sha256", $querystring, $apiSecretKey);
+	unset($data['PassTemplateId']);
+	echo "<br>New Pass<br>";
+	$data_string = utf8_encode(json_encode($data));
+	curl_setopt($ch, CURLOPT_URL, $passMarketDomain."template/");
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+		'Accept: application/json',
+		'Content-Type: application/json',
+		'Content-Length: ' . strlen($data_string),
+		'Authorization: ' . 'Pass ' . $apiKey . ':' . $hash,
+		'X-Pass-Timestamp: ' . $epoch_milliseconds)
+);
+
+$result = curl_exec($ch);
+fclose($f);
+$ch_error = curl_error($ch);
+
+$curlVersion = curl_version();
+extract(curl_getinfo($ch));
+$metrics = <<<EOD
+URL....: $url <br>
+Code...:  ($redirect_count redirect(s) in $redirect_time secs) <br>
+Content: $content_type Size: $download_content_length (Own: $size_download) Filetime: $filetime <br>
+Time...: $total_time Start @ $starttransfer_time (DNS: $namelookup_time Connect: $connect_time Request: $pretransfer_time) <br>
+Speed..: Down: $speed_download (avg.) Up: $speed_upload (avg.) <br>
+Curl...: v{$curlVersion['version']} <br>
+EOD;
+
+$myJson = json_decode($result, true);
+
+	if ($http_code==200) {
+	echo "<h2 class='green'>App Successfully Updated</h2>";}
+else  {
+	echo "<h2 class='red'>Error in App Update</h2>";
+}
+if ($debug==true) {
+	echo "<div class='errorCode'>";	
+	echo "Error: ". $result;
+	echo '<h4>HTTP Code: ' . $http_code . '</h4>';
+	echo 'JSON: ' . $data_string . '<br><br>';
+	echo 'Content Type: ' . $content_type . '<br>';
+	echo 'CURL Info: ' . $metrics . '<br>';
+	echo "}";
+
+}
+
+$templateID= $myJson['PassTemplateId'];
+/*echo 'Template ID='  . $templateID;
+echo $myJson . '<br><br>';*/
+
+$sql = 'UPDATE COUPONS SET passTemplateId = "'.$templateID.'", LastChangedDate = CURRENT_TIMESTAMP() WHERE CouponID = ' . $couponID;
+	$result = mysql_query($sql,$db);
+/*echo $sql . '<br><br>';*/
+
+
+
+
+	}
+	
+	 else 
+	
+	{
+		//this is the update pass section
+		
+		//this is where we need to delete the pass then create a new one.
+		echo "clientid=" . $clientID;
+		echo "<br>couponid=" . $couponID;
+		echo "<br>dbid=" . $db;
+		
+		passDelete ($clientID, $couponID, $db, True);
+		
+		
+		
+		/*echo "<br>update<br>";
+		
+		$querystring = 'passTemplateId='.$templateID.'&timestamp=' . $epoch_milliseconds ;
+
+
+$hash = hash_hmac("sha256", $querystring, $apiSecretKey);
+		
+	$data_string = utf8_encode(json_encode($data));
+	curl_setopt($ch, CURLOPT_URL, $passMarketDomain."template/" . $templateID);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+curl_setopt($ch, CURLOPT_POSTFIELDS,$data_string);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+		'Accept: application/json',
+		'Content-Type: application/json',
+		'Content-Length: ' . strlen($data_string),
+		'Authorization: ' . 'Pass ' . $apiKey . ':' . $hash,
+		'X-Pass-Timestamp: ' . $epoch_milliseconds)
+);
+
+$result = curl_exec($ch);
+fclose($f);
+$ch_error = curl_error($ch);
+
+$curlVersion = curl_version();
+extract(curl_getinfo($ch));
+$metrics = <<<EOD
+URL....: $url <br>
+Code...:  ($redirect_count redirect(s) in $redirect_time secs) <br>
+Content: $content_type Size: $download_content_length (Own: $size_download) Filetime: $filetime <br>
+Time...: $total_time Start @ $starttransfer_time (DNS: $namelookup_time Connect: $connect_time Request: $pretransfer_time) <br>
+Speed..: Down: $speed_download (avg.) Up: $speed_upload (avg.) <br>
+Curl...: v{$curlVersion['version']} <br>
+EOD;*/
+
+/*			if ($http_code==200) {
+							echo "<h2 class='green'>App Successfully Updated</h2>";}
+else  {
+	echo "<h2 class='red'>Error in App Update</h2>";
+}
+if ($debug==true) {
+	echo "<div class='errorCode'>";	
+	echo "debug:= true";	
+	echo '<hr>JSON: ' . $data_string . '<br><br><hr>';
+	echo "Error: ". $result;
+	echo '<h4>HTTP Code: ' . $http_code . '</h4>';
+	echo 'Content Type: ' . $content_type . '<br><hr>';
+	echo 'CURL Info: ' . $metrics . '<br><hr>';
+	echo '<br>Results: ' . $result;
+	echo "</div>";
+}*/
+
+	}
+} 
+
+
+
+
+
+
+
+
+
+
+
+?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
