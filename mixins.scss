@@ -1,0 +1,82 @@
+//display flex mixins
+
+@mixin dFlex($bp) {
+	display: -webkit-flex;
+	display: -moz-flex;
+	display: -ms-flex;
+	display: -o-flex;
+	-webkit-display: flex;
+	-moz-display: flex;
+	-ms-display: flex;
+	-o-display: flex;
+	display: flex;
+		@media screen and (max-width:$bp) {display: block; }
+}
+@mixin aItems($al) {
+	-webkit-align-items: $al;
+	-moz-align-items: $al;
+	-ms-align-items: $al;
+	-o-align-items: $al;
+	align-items: $al;
+}
+
+@mixin jContent($jc) {
+	-webkit-justify-content: $jc;
+	-moz-justify-content: $jc;
+	-ms-justify-content: $jc;
+	-o-justify-content: $jc;
+	justify-content: $jc;
+}
+
+@mixin aContent($ac) {
+	-webkit-align-content: $ac;
+	-moz-align-content: $ac;
+	-ms-align-content: $ac;
+	-o-align-content: $ac;
+	align-content: $ac;
+}
+@mixin fDirection($fd) {
+	-webkit-flex-direction: $fd;
+	-moz-flex-direction: $fd;
+	-ms-flex-direction: $fd;
+	-o-flex-direction: $fd;
+	flex-direction: $fd;
+}
+@mixin fFlow($ff) {
+	-webkit-flex-flow: $ff;
+	-moz-flex-flow: $ff;
+	-ms-flex-flow: $ff;
+	-o-flex-flow: $ff;
+	flex-flow: $ff;
+}
+
+@mixin fWrap($fw) {
+	-webkit-flex-wrap: $fw;
+	-moz-flex-wrap: $fw;
+	-ms-flex-wrap: $fw;
+	-o-flex-wrap: $fw;
+	flex-wrap: $fw;
+}
+
+
+// loop for multiple styles with different ids
+$sliderValues: 1341 1342 1346 1348 1400;
+
+
+@each $sliderID in $sliderValues 	{
+	.container-#{$sliderID} {
+	width: 75%;
+
+		.layer-media img {
+			width: 100%;
+			max-width: 375px;
+			height: auto;
+			padding-top: 40px;
+			float: right;
+		}
+	
+	}
+}
+
+
+
